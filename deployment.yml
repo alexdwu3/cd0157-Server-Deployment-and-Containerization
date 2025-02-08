@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flask-jwt-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: flask-jwt-api
+  template:
+    metadata:
+      labels:
+        app: flask-jwt-api
+    spec:
+      containers:
+      - name: flask-jwt-api
+        image: 982534393200.dkr.ecr.us-east-2.amazonaws.com/flask-jwt-api:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: jwt-secret
+              key: secret

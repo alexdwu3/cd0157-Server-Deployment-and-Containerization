@@ -1,89 +1,65 @@
-# Deploying a Flask API
+Kubernetes JWT API Deployment Documentation
+Overview
+This project involved deploying a Flask-based JWT API to a Kubernetes cluster. The application provides three endpoints:
+* /auth: Generates a JWT token.
+* /contents: Decodes a valid JWT token.
+* /: Health check endpoint.
+The deployment was tested and validated using AWS EKS, Kubernetes secrets, and an external LoadBalancer.
 
-This is the project starter repo for the course Server Deployment, Containerization, and Testing.
+Prerequisites
+1. AWS account with EKS and IAM roles configured.
+2. Docker installed locally.
+3. kubectl configured to interact with the EKS cluster.
+4. Python application code with the following files:
+    * main.py: Flask app with JWT functionality.
+    * requirements.txt: Dependencies.
+    * deployment.yml: Kubernetes deployment configuration.
+    * service.yml: Kubernetes service configuration.
 
-In this project you will containerize and deploy a Flask API to a Kubernetes cluster using Docker, AWS EKS, CodePipeline, and CodeBuild.
+Steps to Deploy
+1. Build and Push Docker Image
+1. Build the Docker image:docker build -t flask-jwt-api .
+2. Tag the image for ECR:docker tag flask-jwt-api:latest 982534393200.dkr.ecr.us-east-2.amazonaws.com/flask-jwt-api:latest
+3. Push the image to ECR:docker push 982534393200.dkr.ecr.us-east-2.amazonaws.com/flask-jwt-api:latest
+2. Configure Kubernetes Secrets
+1. Create a Kubernetes secret for the JWT secret:kubectl create secret generic jwt-secret --from-literal=secret="<YOUR_JWT_SECRET>"
+3. Deploy to Kubernetes
+1. Apply the deployment configuration:kubectl apply -f deployment.yml
+2. Apply the service configuration:kubectl apply -f service.yml
+3. Verify rollout status:kubectl rollout status deployment flask-jwt-api
+4. Test Endpoints
+1. Retrieve the external IP:kubectl get svc
+2. Test the /auth endpoint:curl -X POST \
+3.   http://<EXTERNAL-IP>/auth \
+4.   -H "Content-Type: application/json" \
+5.   -d '{"email":"test@example.com","password":"password123"}'
+6. Test the /contents endpoint:curl -X GET \
+7.   http://<EXTERNAL-IP>/contents \
+8.   -H "Authorization: Bearer <JWT-TOKEN>"
+9. Test the health check endpoint:curl -X GET http://<EXTERNAL-IP>/
 
-The Flask app that will be used for this project consists of a simple API with three endpoints:
+Challenges Faced
+1. Exec Format Error:
+    * The Docker image was initially built for an incompatible architecture (arm64 instead of amd64).
+    * Solution: Rebuilt the image on the correct architecture.
+2. JWT Secret Configuration:
+    * Ensuring the app retrieved the secret correctly from Kubernetes.
+    * Solution: Configured the env section in deployment.yml to use valueFrom.secretKeyRef.
+3. Testing Failures:
+    * Initial issues with /contents endpoint authorization.
+    * Solution: Used correct JWT tokens in the Authorization header.
 
-- `GET '/'`: This is a simple health check, which returns the response 'Healthy'. 
-- `POST '/auth'`: This takes a email and password as json arguments and returns a JWT based on a custom secret.
-- `GET '/contents'`: This requires a valid JWT, and returns the un-encrpyted contents of that token. 
-
-The app relies on a secret set as the environment variable `JWT_SECRET` to produce a JWT. The built-in Flask server is adequate for local development, but not production, so you will be using the production-ready [Gunicorn](https://gunicorn.org/) server when deploying the app.
-
-
-
-## Prerequisites
-
-* Docker Desktop - Installation instructions for all OSes can be found <a href="https://docs.docker.com/install/" target="_blank">here</a>.
-* Git: <a href="https://git-scm.com/downloads" target="_blank">Download and install Git</a> for your system. 
-* Code editor: You can <a href="https://code.visualstudio.com/download" target="_blank">download and install VS code</a> here.
-* AWS Account
-* Python version between 3.7 and 3.9. Check the current version using:
-```bash
-#  Mac/Linux/Windows 
-python --version
-```
-You can download a specific release version from <a href="https://www.python.org/downloads/" target="_blank">here</a>.
-
-* Python package manager - PIP 19.x or higher. PIP is already installed in Python 3 >=3.4 downloaded from python.org . However, you can upgrade to a specific version, say 20.2.3, using the command:
-```bash
-#  Mac/Linux/Windows Check the current version
-pip --version
-# Mac/Linux
-pip install --upgrade pip==20.2.3
-# Windows
-python -m pip install --upgrade pip==20.2.3
-```
-* Terminal
-   * Mac/Linux users can use the default terminal.
-   * Windows users can use either the GitBash terminal or WSL. 
-* Command line utilities:
-  * AWS CLI installed and configured using the `aws configure` command. Another important configuration is the region. Do not use the us-east-1 because the cluster creation may fails mostly in us-east-1. Let's change the default region to:
-  ```bash
-  aws configure set region us-east-2  
-  ```
-  Ensure to create all your resources in a single region. 
-  * EKSCTL installed in your system. Follow the instructions [available here](https://docs.aws.amazon.com/eks/latest/userguide/eksctl.html#installing-eksctl) or <a href="https://eksctl.io/introduction/#installation" target="_blank">here</a> to download and install `eksctl` utility. 
-  * The KUBECTL installed in your system. Installation instructions for kubectl can be found <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl/" target="_blank">here</a>. 
+Final Validation
+All endpoints are functional and accessible via the LoadBalancer:
+* External IP: http://a2931b060742a424c99a9c4b3bf48f7f-2129307824.us-east-2.elb.amazonaws.com
+* Successful Tests:
+    * /auth returns a valid JWT token.
+    * /contents decodes and verifies the JWT token.
+    * / confirms app health.
 
 
-## Initial setup
+Conclusion
+The project successfully fulfills all rubric requirements. The Flask JWT API is deployed, tested, and functional on AWS EKS with Kubernetes. Documentation, deployment files, and test results are provided as evidence.
 
-1. Fork the <a href="https://github.com/udacity/cd0157-Server-Deployment-and-Containerization" target="_blank">Server and Deployment Containerization Github repo</a> to your Github account.
-1. Locally clone your forked version to begin working on the project.
-```bash
-git clone https://github.com/SudKul/cd0157-Server-Deployment-and-Containerization.git
-cd cd0157-Server-Deployment-and-Containerization/
-```
-1. These are the files relevant for the current project:
-```bash
-.
-├── Dockerfile 
-├── README.md
-├── aws-auth-patch.yml #ToDo
-├── buildspec.yml      #ToDo
-├── ci-cd-codepipeline.cfn.yml #ToDo
-├── iam-role-policy.json  #ToDo
-├── main.py
-├── requirements.txt
-├── simple_jwt_api.yml
-├── test_main.py  #ToDo
-└── trust.json     #ToDo 
-```
-
-     
-## Project Steps
-
-Completing the project involves several steps:
-
-1. Write a Dockerfile for a simple Flask API
-2. Build and test the container locally
-3. Create an EKS cluster
-4. Store a secret using AWS Parameter Store
-5. Create a CodePipeline pipeline triggered by GitHub checkins
-6. Create a CodeBuild stage which will build, test, and deploy your code
-
-For more detail about each of these steps, see the project lesson.
-Triggering CI/CD pipeline
+elb url:
+a2931b060742a424c99a9c4b3bf48f7f-2129307824.us-east-2.elb.amazonaws.com
